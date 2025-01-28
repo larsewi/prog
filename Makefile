@@ -16,6 +16,7 @@ main.o: main.c
 clean:
 	rm -f prog
 	rm -f *.o
+	chattr -i immutable.txt
 	rm -f immutable.txt
 
 run: prog 
