@@ -1,21 +1,23 @@
-
 CC = gcc
 CFLAGS = -g -Wall -Wextra -Wconversion
-LDFLAGS = 
 
-.PHONY: all clean run
+.PHONY: all clean
 
-all: prog
+all: server client
 
-prog: main.o
-	$(CC) $^ -o $@ $(LDFLAGS)
+server: server.o
+	$(CC) $^ -o $@
 
-main.o: main.c
+server.o: server.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+client: client.o
+	$(CC) $^ -o $@
+
+client.o: client.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f prog
+	rm -f server
+	rm -f client
 	rm -f *.o
-
-run: prog 
-	./prog
