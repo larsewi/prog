@@ -22,6 +22,18 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    const char *first_msg = "Hello";
+    if (send_message(sock, first_msg, strlen(first_msg), 0) == -1) {
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
+    const char *second_msg = " from client\n";
+    if (send_message(sock, second_msg, strlen(second_msg), 1) == -1) {
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
     close(sock);
     return EXIT_SUCCESS;
 }
