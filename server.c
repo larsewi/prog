@@ -19,18 +19,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    int eof;
-    size_t len;
-    char buffer[BUFFER_SIZE + 1 /* to add terminating null-byte */];
-    do {
-        int ret = recv_message(sock, buffer, &len, &eof);
-        if (ret == -1) {
-            return EXIT_FAILURE;
-        }
-        buffer[len] = '\0';
-        printf("%s", buffer);
-    } while (!eof);
-
     close(sock);
     return EXIT_SUCCESS;
 }
