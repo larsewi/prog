@@ -13,12 +13,30 @@
 
 #define IP_ADDRESS "127.0.0.1"
 
+
+static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE * 2];
+
 static int connect_to_server(const char *ip_addr);
+static int send_signature(int sock, const char *fname);
 
 int main(int argc, char *argv[]) {
+    /* Parse arguments */
+    if (argc < 2) {
+        printf("USAGE: %s <FILENAME>", argv[0]);
+        return EXIT_FAILURE;
+    }
+    const char *fname = argv[1];
+
     puts("Connecting to server...");
     int sock = connect_to_server(IP_ADDRESS);
     if (sock == -1) {
+        return EXIT_FAILURE;
+    }
+
+    puts("Sending signature...");
+    int ret = send_signature(sock, fname);
+    if (ret == -1) {
+        close(sock);
         return EXIT_FAILURE;
     }
 
