@@ -136,7 +136,6 @@ static int send_signature(int sock, const char *fname) {
             bufs.avail_in += n_bytes;
         }
 
-        /* Iterate job */
         res = rs_job_iter(job, &bufs);
         if (res != RS_DONE && res != RS_BLOCKED) {
             rs_file_close(file);
@@ -144,7 +143,8 @@ static int send_signature(int sock, const char *fname) {
             return -1;
         }
 
-        size_t present = bufs.next_out - out_buf;
+        assert(bufs.next_out >= out_buf);
+        size_t present = (size_t)(bufs.next_out - out_buf);
         if (present > 0 || res == RS_DONE) {
             /* Drain output buffer */
             assert(present <= BUFFER_SIZE);

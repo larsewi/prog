@@ -9,13 +9,24 @@
 
 #include "common.h"
 
+static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE * 2];
+
 static int accept_connection(void);
+static int recv_signature(int sock, rs_signature_t **sig);
 
 int main(int argc, char *argv[])
 {
     puts("Waiting for connection...");
     int sock = accept_connection();
     if (sock == -1) {
+        return EXIT_FAILURE;
+    }
+
+    puts("Receiving signature...");
+    rs_signature_t *sig;
+    int ret = recv_signature(sock, &sig);
+    if (ret == -1) {
+        close(sock);
         return EXIT_FAILURE;
     }
 
@@ -73,4 +84,52 @@ static int accept_connection(void) {
     }
 
     return conn;
+}
+
+static int recv_signature(int sock, rs_signature_t **sig) {
+    rs_job_t *job = rs_loadsig_begin(sig);
+    assert(job != NULL);
+
+    /* Setup buffers */
+    rs_buffers_t bufs = { 0 };
+    bufs.next_in = in_buf;
+
+    rs_result res;
+    do {
+        if (bufs.eof_in == 0) {
+            if (bufs.avail_in > BUFFER_SIZE) {
+                /* The job requires more data, but we cannot fit another
+                 * message into the input buffer */
+                fputs("Insufficient buffer capacity", stderr);
+                rs_job_free(job);
+                return -1;
+            }
+
+            if (bufs.avail_in > 0) {
+                /* Leftover tail data, move it to front */
+                memmove(in_buf, bufs.next_in, bufs.avail_in);
+            }
+
+            size_t n_bytes;
+            int ret = recv_message(sock, in_buf + bufs.avail_in, &n_bytes, &bufs.eof_in);
+            if (ret == -1) {
+                rs_job_free(job);
+                return -1;
+            }
+
+            bufs.next_in = in_buf;
+            bufs.avail_in += n_bytes;
+        }
+
+        res = rs_job_iter(job, &bufs);
+        if (res != RS_DONE && res != RS_BLOCKED) {
+            rs_job_free(job);
+            return -1;
+        }
+
+        /* The job should take care of draining the buffers */
+    } while (res != RS_DONE);
+
+    rs_job_free(job);
+    return 0;
 }
