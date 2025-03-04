@@ -19,7 +19,6 @@
 static int send_message(int sock, const char *msg, size_t len, int eof) {
     assert(len <= BUFFER_SIZE);
 
-    /* Make space for EoF flag */
     uint16_t header = (uint16_t)len << 4;
 
     /* Set EoF flag */

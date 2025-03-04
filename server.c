@@ -112,7 +112,7 @@ static int recv_signature(int sock, rs_signature_t **sig) {
             if (bufs.avail_in > BUFFER_SIZE) {
                 /* The job requires more data, but we cannot fit another
                  * message into the input buffer */
-                fputs("Insufficient buffer capacity", stderr);
+                fputs("Insufficient buffer capacity\n", stderr);
                 rs_job_free(job);
                 return -1;
             }
@@ -171,7 +171,7 @@ static int send_delta(int sock, rs_signature_t *sig, const char *fname) {
         if (bufs.eof_in == 0) {
             if (bufs.avail_in >= sizeof(in_buf)) {
                 /* The job requires more data, but the input buffer is full */
-                fputs("Insufficient buffer capacity", stderr);
+                fputs("Insufficient buffer capacity\n", stderr);
                 rs_file_close(file);
                 rs_job_free(job);
                 return -1;

@@ -109,12 +109,14 @@ static int send_signature(int sock, const char *fname) {
     bufs.next_out = out_buf;
     bufs.avail_out = BUFFER_SIZE; /* We cannot send more in one message */
 
+    size_t tot_bytes_sent = 0;
+
     /* Generate signature */
     do {
         if (bufs.eof_in == 0) {
             if (bufs.avail_in >= sizeof(in_buf)) {
                 /* The job requires more data, but the input buffer is full */
-                fputs("Insufficient buffer capacity", stderr);
+                fputs("Insufficient buffer capacity\n", stderr);
                 rs_file_close(file);
                 rs_job_free(job);
                 return -1;
@@ -163,6 +165,8 @@ static int send_signature(int sock, const char *fname) {
                 return -1;
             }
 
+            tot_bytes_sent += present;
+
             bufs.next_out = out_buf;
             bufs.avail_out = BUFFER_SIZE;
         }
@@ -170,6 +174,9 @@ static int send_signature(int sock, const char *fname) {
 
     rs_job_free(job);
     rs_file_close(file);
+
+    printf("Sent %zu bytes\n", tot_bytes_sent);
+
     return 0;
 }
 
@@ -204,13 +211,15 @@ static int recv_delta_and_patch_file(int sock, const char *fname_old) {
     bufs.next_out = out_buf;
     bufs.avail_out = sizeof(out_buf);
 
+    size_t tot_bytes_received = 0;
+
     rs_result res;
     do {
         if (bufs.eof_in == 0) {
             if (bufs.avail_in > BUFFER_SIZE) {
                 /* The job requires more data, but we cannot fit another
                  * message into the input buffer */
-                fputs("Insufficient buffer capacity", stderr);
+                fputs("Insufficient buffer capacity\n", stderr);
                 rs_file_close(new);
                 rs_file_close(old);
                 rs_job_free(job);
@@ -230,6 +239,8 @@ static int recv_delta_and_patch_file(int sock, const char *fname_old) {
                 rs_job_free(job);
                 return -1;
             }
+
+            tot_bytes_received += n_bytes;
 
             bufs.next_in = in_buf;
             bufs.avail_in += n_bytes;
@@ -272,6 +283,8 @@ static int recv_delta_and_patch_file(int sock, const char *fname_old) {
             return -1;
         }
     }
+
+    printf("Received %zu bytes\n", tot_bytes_received);
 
     return 0;
 }
