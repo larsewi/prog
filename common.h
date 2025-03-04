@@ -28,19 +28,27 @@ static int send_message(int sock, const char *msg, size_t len, int eof) {
 
     /* Send header */
     header = htons(header);
-    ssize_t ret = write(sock, &header, sizeof(header));
-    if (ret < 0 || (size_t)ret != sizeof(header)) {
-        perror("Failed to send message header");
-        return -1;
-    }
+    size_t n_bytes = 0;
+    do {
+        ssize_t ret = write(sock, &header + n_bytes, sizeof(header) - n_bytes);
+        if (ret < 0) {
+            perror("Failed to send message header");
+            return -1;
+        }
+        n_bytes += (size_t)ret;
+    } while (n_bytes < sizeof(header));
 
     if (len > 0) {
         /* Send payload */
-        ret = write(sock, msg, len);
-        if (ret < 0 || (size_t)ret != len) {
-            perror("Failed to send message payload");
-            return -1;
-        }
+        n_bytes = 0;
+        do {
+            ssize_t ret = write(sock, msg + n_bytes, len - n_bytes);
+            if (ret < 0) {
+                perror("Failed to send message payload");
+                return -1;
+            }
+            n_bytes += (size_t)ret;
+        } while (n_bytes < len);
     }
 
     return 0;
@@ -49,11 +57,15 @@ static int send_message(int sock, const char *msg, size_t len, int eof) {
 static int recv_message(int sock, char *msg, size_t *len, int *eof) {
     /* Receive header */
     uint16_t header;
-    ssize_t ret = read(sock, &header, sizeof(header));
-    if (ret < 0 || (size_t)ret != sizeof(header)) {
-        perror("Failed to receive message header");
-        return -1;
-    }
+    size_t n_bytes = 0;
+    do {
+        ssize_t ret = read(sock, &header + n_bytes, sizeof(header) - n_bytes);
+        if (ret < 0) {
+            perror("Failed to receive message header");
+            return -1;
+        }
+        n_bytes += (size_t)ret;
+    } while (n_bytes < sizeof(header));
     header = ntohs(header);
 
     /* Extract EOF flag */
@@ -64,11 +76,15 @@ static int recv_message(int sock, char *msg, size_t *len, int *eof) {
 
     if (*len > 0) {
         /* Read payload */
-        ret = read(sock, msg, *len);
-        if (ret < 0 || (size_t)ret != *len) {
-            perror("Failed to receive message payload");
-            return -1;
-        }
+        n_bytes = 0;
+        do {
+            ssize_t ret = read(sock, msg + n_bytes, *len - n_bytes);
+            if (ret < 0) {
+                perror("Failed to receive message payload");
+                return -1;
+            }
+            n_bytes += (size_t)ret;
+        } while (n_bytes < *len);
     }
 
     return 0;
