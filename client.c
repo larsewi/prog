@@ -18,6 +18,7 @@ static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE * 2];
 
 static int connect_to_server(const char *ip_addr);
 static int send_signature(int sock, const char *fname);
+static int recv_delta_and_patch_file(int sock, const char *fname);
 
 int main(int argc, char *argv[]) {
     /* Parse arguments (use stdin and stdout if no argument) */
@@ -31,6 +32,13 @@ int main(int argc, char *argv[]) {
 
     puts("Sending signature...");
     int ret = send_signature(sock, fname);
+    if (ret == -1) {
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
+    puts("Receiving delta and patching file...");
+    ret = recv_delta_and_patch_file(sock, fname);
     if (ret == -1) {
         close(sock);
         return EXIT_FAILURE;
@@ -162,5 +170,108 @@ static int send_signature(int sock, const char *fname) {
 
     rs_job_free(job);
     rs_file_close(file);
+    return 0;
+}
+
+static int recv_delta_and_patch_file(int sock, const char *fname_old) {
+    const int use_io_stream = (fname_old == NULL) || (strcmp(fname_old, "-") == 0);
+
+    const char *fname_new = NULL;
+    char path[PATH_MAX];
+    if (!use_io_stream) {
+        int ret = snprintf(path, sizeof(path), "%s.new", fname_old);
+        if (ret < 0 || (size_t)ret >= sizeof(path)) {
+            fputs("Filename too long\n", stderr);
+            return -1;
+        }
+        fname_new = path;
+    }
+
+    /* Open new file */
+    FILE *new = rs_file_open(fname_new, "wb", 1);
+    assert(new != NULL);
+
+    /* Open basis file */
+    FILE *old = old = rs_file_open(fname_old, "rb", 0);
+    assert(old != NULL);
+
+    rs_job_t *job = rs_patch_begin(rs_file_copy_cb, old);
+    assert(job != NULL);
+
+    /* Setup RSYNC buffers */
+    rs_buffers_t bufs = { 0 };
+    bufs.next_in = in_buf;
+    bufs.next_out = out_buf;
+    bufs.avail_out = sizeof(out_buf);
+
+    rs_result res;
+    do {
+        if (bufs.eof_in == 0) {
+            if (bufs.avail_in > BUFFER_SIZE) {
+                /* The job requires more data, but we cannot fit another
+                 * message into the input buffer */
+                fputs("Insufficient buffer capacity", stderr);
+                rs_file_close(new);
+                rs_file_close(old);
+                rs_job_free(job);
+                return -1;
+            }
+
+            if (bufs.avail_in > 0) {
+                /* Left over tail data, move to front */
+                memmove(in_buf, bufs.next_in, bufs.avail_in);
+            }
+
+            size_t n_bytes;
+            int ret = recv_message(sock, in_buf + bufs.avail_in, &n_bytes, &bufs.eof_in);
+            if (ret == -1) {
+                rs_file_close(new);
+                rs_file_close(old);
+                rs_job_free(job);
+                return -1;
+            }
+
+            bufs.next_in = in_buf;
+            bufs.avail_in += n_bytes;
+        }
+
+        res = rs_job_iter(job, &bufs);
+        if (res != RS_DONE && res != RS_BLOCKED) {
+            rs_file_close(new);
+            rs_file_close(old);
+            rs_job_free(job);
+            return -1;
+        }
+
+        /* Drain output buffer, if there is data */
+        assert(bufs.next_out >= out_buf);
+        size_t present = (size_t)(bufs.next_out - out_buf);
+        if (present > 0) {
+            size_t n_bytes = fwrite(out_buf, 1, present, new);
+            if (n_bytes == 0) {
+                perror("Failed to write to file");
+                rs_file_close(new);
+                rs_file_close(old);
+                rs_job_free(job);
+                return -1;
+            }
+
+            bufs.next_out = out_buf;
+            bufs.avail_out = sizeof(out_buf);
+        }
+    } while (res != RS_DONE);
+
+    rs_file_close(new);
+    rs_file_close(old);
+    rs_job_free(job);
+
+    if (!use_io_stream) {
+        int ret = rename(fname_new, fname_old);
+        if (ret == -1) {
+            perror("Failed to swap basis file with patched file");
+            return -1;
+        }
+    }
+
     return 0;
 }
