@@ -9,7 +9,7 @@
 
 #include "common.h"
 
-static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE * 2];
+static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE];
 
 static int accept_connection(void);
 static int recv_signature(int sock, rs_signature_t **sig);
@@ -104,19 +104,10 @@ static int recv_signature(int sock, rs_signature_t **sig) {
 
     /* Setup buffers */
     rs_buffers_t bufs = { 0 };
-    bufs.next_in = in_buf;
 
     rs_result res;
     do {
-        if (bufs.eof_in == 0) {
-            if (bufs.avail_in > BUFFER_SIZE) {
-                /* The job requires more data, but we cannot fit another
-                 * message into the input buffer */
-                fputs("Insufficient buffer capacity\n", stderr);
-                rs_job_free(job);
-                return -1;
-            }
-
+        if ((bufs.eof_in == 0) && (bufs.avail_in <= BUFFER_SIZE)) {
             if (bufs.avail_in > 0) {
                 /* Leftover tail data, move it to front */
                 memmove(in_buf, bufs.next_in, bufs.avail_in);
@@ -163,20 +154,11 @@ static int send_delta(int sock, rs_signature_t *sig, const char *fname) {
 
     /* Setup buffers */
     rs_buffers_t bufs = { 0 };
-    bufs.next_in = in_buf;
     bufs.next_out = out_buf;
     bufs.avail_out = BUFFER_SIZE; /* We cannot send more in one message */
 
     do {
-        if (bufs.eof_in == 0) {
-            if (bufs.avail_in >= sizeof(in_buf)) {
-                /* The job requires more data, but the input buffer is full */
-                fputs("Insufficient buffer capacity\n", stderr);
-                rs_file_close(file);
-                rs_job_free(job);
-                return -1;
-            }
-
+        if ((bufs.eof_in == 0) && (bufs.avail_in < sizeof(in_buf))) {
             if (bufs.avail_in > 0) {
                 /* Left over tail data, move to front */
                 memmove(in_buf, bufs.next_in, bufs.avail_in);
@@ -192,6 +174,7 @@ static int send_delta(int sock, rs_signature_t *sig, const char *fname) {
                     return -1;
                 }
                 bufs.eof_in = feof(file);
+                assert(bufs.eof_in != 0);
             }
 
             bufs.next_in = in_buf;

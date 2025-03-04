@@ -14,7 +14,7 @@
 #define IP_ADDRESS "127.0.0.1"
 
 
-static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE * 2];
+static char in_buf[BUFFER_SIZE * 2], out_buf[BUFFER_SIZE];
 
 static int connect_to_server(const char *ip_addr);
 static int send_signature(int sock, const char *fname);
@@ -105,7 +105,6 @@ static int send_signature(int sock, const char *fname) {
 
     /* Setup buffers */
     rs_buffers_t bufs = { 0 };
-    bufs.next_in = in_buf;
     bufs.next_out = out_buf;
     bufs.avail_out = BUFFER_SIZE; /* We cannot send more in one message */
 
@@ -113,15 +112,7 @@ static int send_signature(int sock, const char *fname) {
 
     /* Generate signature */
     do {
-        if (bufs.eof_in == 0) {
-            if (bufs.avail_in >= sizeof(in_buf)) {
-                /* The job requires more data, but the input buffer is full */
-                fputs("Insufficient buffer capacity\n", stderr);
-                rs_file_close(file);
-                rs_job_free(job);
-                return -1;
-            }
-
+        if ((bufs.eof_in == 0) && (bufs.avail_in < sizeof(in_buf))) {
             if (bufs.avail_in > 0) {
                 /* Leftover tail data, move it to front */
                 memmove(in_buf, bufs.next_in, bufs.avail_in);
@@ -207,7 +198,6 @@ static int recv_delta_and_patch_file(int sock, const char *fname_old) {
 
     /* Setup RSYNC buffers */
     rs_buffers_t bufs = { 0 };
-    bufs.next_in = in_buf;
     bufs.next_out = out_buf;
     bufs.avail_out = sizeof(out_buf);
 
@@ -215,17 +205,7 @@ static int recv_delta_and_patch_file(int sock, const char *fname_old) {
 
     rs_result res;
     do {
-        if (bufs.eof_in == 0) {
-            if (bufs.avail_in > BUFFER_SIZE) {
-                /* The job requires more data, but we cannot fit another
-                 * message into the input buffer */
-                fputs("Insufficient buffer capacity\n", stderr);
-                rs_file_close(new);
-                rs_file_close(old);
-                rs_job_free(job);
-                return -1;
-            }
-
+        if ((bufs.eof_in == 0) && (bufs.avail_in < BUFFER_SIZE)) {
             if (bufs.avail_in > 0) {
                 /* Left over tail data, move to front */
                 memmove(in_buf, bufs.next_in, bufs.avail_in);
