@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <unistd.h>
 #include <assert.h>
 #include <arpa/inet.h>
@@ -32,6 +33,11 @@ static int send_message(int sock, const char *msg, size_t len, int eof) {
     do {
         ssize_t ret = write(sock, &header + n_bytes, sizeof(header) - n_bytes);
         if (ret < 0) {
+            if (errno == EINTR) {
+                /* The call was interrupted by a signal before any data was
+                   written. It is safe to continue. */
+                continue;
+            }
             perror("Failed to send message header");
             return -1;
         }
@@ -44,6 +50,11 @@ static int send_message(int sock, const char *msg, size_t len, int eof) {
         do {
             ssize_t ret = write(sock, msg + n_bytes, len - n_bytes);
             if (ret < 0) {
+                if (errno == EINTR) {
+                    /* The call was interrupted by a signal before any data was
+                       written. It is safe to continue. */
+                    continue;
+                }
                 perror("Failed to send message payload");
                 return -1;
             }
@@ -61,6 +72,11 @@ static int recv_message(int sock, char *msg, size_t *len, int *eof) {
     do {
         ssize_t ret = read(sock, &header + n_bytes, sizeof(header) - n_bytes);
         if (ret < 0) {
+            if (errno == EINTR) {
+                /* The call was interrupted by a signal before any data was
+                   read. It is safe to continue. */
+                continue;
+            }
             perror("Failed to receive message header");
             return -1;
         }
@@ -80,6 +96,11 @@ static int recv_message(int sock, char *msg, size_t *len, int *eof) {
         do {
             ssize_t ret = read(sock, msg + n_bytes, *len - n_bytes);
             if (ret < 0) {
+                if (errno == EINTR) {
+                    /* The call was interrupted by a signal before any data was
+                       read. It is safe to continue. */
+                    continue;
+                }
                 perror("Failed to receive message payload");
                 return -1;
             }
