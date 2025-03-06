@@ -54,7 +54,7 @@ static int accept_connection(void) {
         return -1;
     }
 
-    /* Enable reuse address */
+    /* Enable reuse address (to avoid "Address already in use" errors */
     int opt = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
