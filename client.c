@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/socket.h>
@@ -77,9 +78,9 @@ static int send_signature(int sock, const char *fname) {
     /* Make sure the basis file exists, unless it is stdin */
     const int use_io_stream = (fname == NULL) || (strcmp(fname, "-") == 0);
     if (!use_io_stream) {
-        FILE *file = rs_file_open(fname, "a", 0);
-        if (file != NULL) {
-            rs_file_close(file);
+        int fd = open(fname, O_RDONLY | O_CREAT);
+        if (fd != -1) {
+            close(fd);
         }
     }
 
