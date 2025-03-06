@@ -72,8 +72,8 @@ static int accept_connection(void) {
         return -1;
     }
 
-    /* Listen for incoming connections. In a real world application you would
-       probably have a larger "connection request" queue. */
+    /* Listen for incoming connections. In a real-world application you should
+       have a larger "connection request" queue. */
     ret = listen(sock, 1);
     if (ret == -1) {
         perror("Failed to listen");
@@ -85,8 +85,8 @@ static int accept_connection(void) {
     struct sockaddr_in client_addr; socklen_t addr_len;
     int conn = accept(sock, (struct sockaddr *)&client_addr, &addr_len);
 
-    /* We don't expect any more connections in this example. In a real world
-       application you would probably keep this socket open to accept more
+    /* We don't expect any more connections in this example. In a real-world
+       application you should keep this socket open to accept more
        connections. */
     close(sock);
 
